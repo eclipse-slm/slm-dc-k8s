@@ -1,0 +1,4 @@
+---
+
+- name: Uninstall haproxy
+  include_tasks: haproxy/uninstall.yml

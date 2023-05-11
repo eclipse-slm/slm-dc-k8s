@@ -1,0 +1,55 @@
+---
+
+# awk is used to ignore lines with beginning with "[", i.e. "[upload-certs]..."
+- name: "Create kubernetes secret with certs"
+  shell: >
+    kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_kubeadm_kubelet_config_file_path }} | awk '!/^(\[)/'
+  register: output_upload_certs
+  changed_when: false
+
+
+### MASTER #############################################################################################################
+- name: Get the kubeadm join command for 'k8s_master'
+  command: "kubeadm token create --print-join-command --certificate-key {{ output_upload_certs.stdout }}"
+  changed_when: false
+  register: kubernetes_join_command_result
+  when: output_upload_certs.stdout is defined and output_upload_certs.rc == 0
+
+- name: Combine the 'k8s_master' command
+  set_fact:
+    kubernetes_join_command_master: >
+      {{ kubernetes_join_command_result.stdout }}
+      --ignore-preflight-errors={{ kubernetes_ignore_preflight_errors }}
+      {{ kubernetes_join_command_extra_opts }}
+  when: kubernetes_join_command_result.stdout is defined
+
+- name: Set the 'k8s_master' kubeadm join command globally
+  set_fact:
+    kubernetes_join_command_master: "{{ kubernetes_join_command_master }}"
+  when: kubernetes_join_command_master is defined
+  delegate_to: "{{ item }}"
+  delegate_facts: true
+  with_items: "{{ groups['k8s_master'] }}"
+
+
+### WORKER #############################################################################################################
+- name: Get the kubeadm join command for 'k8s_node'
+  command: "kubeadm token create --print-join-command"
+  changed_when: false
+  register: kubernetes_join_command_result_node
+
+- name: Combine the 'k8s_node' command
+  set_fact:
+    kubernetes_join_command_node: >
+      {{ kubernetes_join_command_result_node.stdout }}
+      --ignore-preflight-errors={{ kubernetes_ignore_preflight_errors }}
+      {{ kubernetes_join_command_extra_opts }}
+  when: kubernetes_join_command_result_node.stdout is defined
+
+- name: Set the 'k8s_node' kubeadm join command globally
+  set_fact:
+    kubernetes_join_command_node: "{{ kubernetes_join_command_node }}"
+  when: kubernetes_join_command_node is defined
+  delegate_to: "{{ item }}"
+  delegate_facts: true
+  with_items: "{{ groups['k8s_node'] }}"

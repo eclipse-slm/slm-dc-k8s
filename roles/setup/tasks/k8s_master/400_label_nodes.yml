@@ -1,0 +1,50 @@
+---
+
+- name: "Query node data at cluster"
+  shell:
+    cmd: "kubectl get nodes -o json"
+  changed_when: false
+  register: output_node_data
+
+- name: "Select node data"
+  set_fact:
+    node_meta: "{{ (output_node_data.stdout | from_json)['items'] | list}}"
+
+- assert:
+    that: "nodes_to_label is defined"
+    fail_msg: "Missing variable 'nodes_to_label'"
+
+#- name: groups
+#  debug:
+#    msg: "{{ groups }}"
+#- name: groups targethost
+#  debug:
+#    msg: "{{ groups['target_host'] }}"
+#
+#- name: hostvars
+#  debug:
+#    msg: "{{ hostvars }}"
+#
+#- name: "nodes_to_label"
+#  debug:
+#    msg: "{{ nodes_to_label }}"
+#
+#- name: "hostvars[item]"
+#  debug:
+#    msg: "{{ hostvars[item] }}"
+#  loop: "{{ nodes_to_label }}"
+#
+#- name: "hostvars[nodes_to_label[0]]['ansible_hostname']"
+#  debug:
+#    msg: "{{ hostvars[nodes_to_label[0]]['ansible_hostname'] }}"
+#
+#- name: "hostvars['10.1.9.37']['ansible_hostname']"
+#  debug:
+#    msg: "{{ hostvars['10.1.9.37']['ansible_hostname'] }}"
+
+- name: "Add labels to k8s_node hosts"
+  shell:
+    cmd: "kubectl label nodes {{ hostvars[item.0 ]['ansible_hostname'] | lower }} kubernetes.io/role={{ item.1 }}"
+  when: not item.1 in (node_meta | json_query('[?metadata.name==`' + (item.0 | lower) + '`].metadata.labels.\"kubernetes.io/role\"') | default([]))
+  ignore_errors: yes
+  loop:  "{{ nodes_to_label |product(['worker'])|list }}"

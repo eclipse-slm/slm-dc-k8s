@@ -1,0 +1,67 @@
+---
+- name: "Create inventory with target host(s)"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Use inventory Helper to setup ansible inventory
+      ansible.builtin.include_role:
+        name: inventory_helper
+
+- name: Converge - Gather facts
+  hosts: all
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Gather Facts
+      ansible.builtin.setup:
+        gather_subset:
+          - min
+          - network
+      register: setup_result
+      until: setup_result.failed != true
+      retries: 10
+
+- name: Check required parameters from Vault
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  run_once: true
+  tasks:
+    - name: "Include vars file"
+      include_vars:
+        file: ./playbooks/vars/main.yml
+    - name: "Read 'kubeconfig' from Vault"
+      set_fact:
+        kubernetes_kubeconfig: "{{ lookup('community.hashi_vault.hashi_vault', '{{ vault_lookup_base_info }} secret=resources/data/{{ resource_id }}:kubeconfig') }}"
+      no_log: true
+    - name: "Read 'namespace' from Vault"
+      set_fact:
+        kubernetes_namespace: "{{ lookup('community.hashi_vault.hashi_vault', '{{ vault_lookup_base_info }} secret=resources/data/{{ resource_id }}:namespace') }}"
+      no_log: true
+      ignore_errors: true
+    - name: "Set namespace to service_id (since namespace seems not defined in vault, most likely due to cluster was installed by capability)"
+      set_fact:
+        kubernetes_namespace: "{{ service_id }}"
+      when: "kubernetes_namespace is undefined"
+    - name: "Set namespace to service_id (since namespace seems to be empty in vault, most likely due to cluster was installed by capability)"
+      set_fact:
+        kubernetes_namespace: "{{ service_id }}"
+      when: "(kubernetes_namespace | length) == 0"
+    - name: "Check required variables"
+      assert:
+        that: "{{ item.name }} is defined and {{ item.name }} | length > 0"
+        fail_msg: "Missing variable '{{ item.name }}': {{ item.description }}"
+      loop: "{{ deployment_parameters }}"
+
+- name: Deploy on Kubernetes
+  hosts: localhost
+  connection: local
+  gather_facts: false
+#  become: yes
+  run_once: yes
+  tasks:
+    - name: "Include use - deploy"
+      include_role:
+        name: "use"
+        tasks_from: deploy_with_kubeconfig.yml

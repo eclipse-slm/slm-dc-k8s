@@ -1,0 +1,137 @@
+---
+- name: Converge - Gather facts
+  hosts: all
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: Gather Facts
+      ansible.builtin.setup:
+        gather_subset:
+          - min
+          - network
+      register: setup_result
+      until: setup_result.failed != true
+      retries: 10
+
+- name: Converge - Install docker
+  hosts: all:!scale_up_host:!scale_down_host:!haproxy
+  gather_facts: no
+  become: yes
+  become_user: root
+  collections:
+    - fabos.docker
+  tasks:
+#    - name: "Include fabos.docker.setup preinstall - Remove apt lock file"
+#      file:
+#        state: absent
+#        path: "/var/lib/apt/lists/lock"
+#    - name: "Include fabos.docker.setup preinstall - Update APT Cache"
+#      apt:
+#        update_cache: yes
+#        force_apt_get: yes
+    - name: "Include fabos.docker.setup - install"
+      include_role:
+        name: fabos.docker.setup
+        tasks_from: install.yml
+
+
+- name: Converge - Install haproxy
+  hosts: haproxy
+  gather_facts: no
+  become: yes
+  collections:
+    - fabos.k8s
+  tasks:
+    - name: "Include fabos.k8s.setup - haproxy"
+      include_role:
+        name: fabos.k8s.setup
+        tasks_from: haproxy.yml
+
+- name: Converge - Install k8s
+  hosts: all:!scale_up_host:!scale_down_host:!haproxy
+  gather_facts: no
+  become: yes
+  collections:
+    - fabos.k8s
+  tasks:
+#    - name: "Include fabos.docker.setup preinstall - Update APT Cache"
+#      apt:
+#        update_cache: yes
+#        force_apt_get: yes
+    - name: "Include fabos.k8s.setup - install"
+      include_role:
+        name: fabos.k8s.setup
+        tasks_from: install.yml
+
+- name: Converge - Setup k8s first master
+  hosts: k8s_master[0]
+  gather_facts: no
+  become: yes
+  collections:
+    - fabos.k8s
+  tasks:
+    - name: "Include fabos.k8s.setup - setup_master"
+      include_role:
+        name: fabos.k8s.setup
+        tasks_from: setup_master.yml
+
+- name: Converge - Get master join
+  hosts: k8s_master[0]
+  gather_facts: no
+  become: yes
+  collections:
+    - fabos.k8s
+  tasks:
+    - name: "Include fabos.k8s.setup - get_join"
+      include_role:
+        name: fabos.k8s.setup
+        tasks_from: get_join.yml
+
+- name: Converge - Join other masters
+  hosts: k8s_master[1:]
+  gather_facts: yes
+  become: yes
+  collections:
+    - fabos.k8s
+  tasks:
+    - name: "Include fabos.k8s.setup - join_masters"
+      include_role:
+        name: fabos.k8s.setup
+        tasks_from: join_masters.yml
+
+- name: Converge - Join nodes
+  hosts: k8s_node:!scale_up_host:!scale_down_host
+  gather_facts: no
+  become: yes
+  collections:
+    - fabos.k8s
+  tasks:
+    - name: "Include fabos.k8s.setup - join_nodes"
+      include_role:
+        name: fabos.k8s.setup
+        tasks_from: join_nodes.yml
+
+
+
+- name: Converge - Node primer
+  hosts: k8s_master[0]
+  gather_facts: no
+  become: yes
+  collections:
+    - fabos.k8s
+  tasks:
+    - debug:
+        var: groups
+#    - name: "Create empty list if no "
+#      set_fact:
+    - name: "Generate list of nodes to be labeled"
+      set_fact:
+        nodes_to_label: "{{ nodes_to_label|d([]) + [item] }}"
+      loop: "{{ groups['k8s_node'] }}"
+      when: item not in (groups['scale_up_host'] | default([]))
+
+    - include_role:
+        name: fabos.k8s.setup
+        tasks_from: node_primer.yml
+#      vars:
+#        nodes_to_label: "{{ nodes_to_label }}"

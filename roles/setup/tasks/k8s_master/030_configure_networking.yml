@@ -1,0 +1,60 @@
+---
+- name: Create a directory for the config files
+  file:
+    path: "{{ kubernetes_network_config_path }}"
+    state: directory
+
+#### uncomment
+#- name: "Download the required deployment files"
+#  get_url:
+#    url: "{{ item.url }}"
+#    dest: "{{ kubernetes_network_config_path }}/{{ item.dest }}"
+#    #    owner: root
+#    #    group: root
+#    #    mode: 0600
+#    force: True
+#  loop:
+#    - url: "{{ kubernetes_flannel_manifest_file_rbac }}"
+#      dest: 'flannel_rbac_manifest.yaml'
+#    - url: "{{ kubernetes_flannel_manifest_file }}"
+#      dest: 'flannel_manifest.yaml'
+#  register: result_ceph_template_download
+#
+#- name: Ensure the correct networking interface is used
+#  ansible.builtin.lineinfile:
+#    path: "{{ kubernetes_network_config_path }}/flannel_manifest.yaml"
+#    insertafter: "        - --kube-subnet-mgr"
+#    line: "        - --iface=ens192"
+#
+#- name: Configure Flannel networking.
+#  command: "{{ item }}"
+#  with_items:
+#    - kubectl apply -f {{ kubernetes_network_config_path }}/flannel_rbac_manifest.yaml
+#    - kubectl apply -f {{ kubernetes_network_config_path }}/flannel_manifest.yaml
+#  register: flannel_result
+#  changed_when: "'created' in flannel_result.stdout"
+#  when: kubernetes_pod_network.cni == 'flannel'
+#  run_once: yes
+#### uncomment
+
+#- name: Configure Calico networking.
+#  command: "{{ item }}"
+#  with_items:
+#    - kubectl apply -f {{ kubernetes_calico_manifest_file }}
+#  register: calico_result
+#  changed_when: "'created' in calico_result.stdout"
+#  when: kubernetes_pod_network.cni == 'calico'
+
+- name: Get Kubernetes version for Weave installation.
+  shell: kubectl version | base64 | tr -d '\n'
+  changed_when: false
+  register: kubectl_version
+  when: kubernetes_pod_network.cni == 'weave'
+
+- name: Configure Weave networking.
+  command: "{{ item }}"
+  with_items:
+    - "kubectl apply -f {{ kubernetes_weavnet_manifest_file }}"
+  register: weave_result
+  changed_when: "'created' in weave_result.stdout"
+  when: kubernetes_pod_network.cni == 'weave'

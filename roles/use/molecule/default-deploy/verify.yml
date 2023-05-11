@@ -1,0 +1,17 @@
+---
+# This is an example playbook to execute Ansible tests.
+
+- name: Verify
+  hosts: k8s_master[0]
+  gather_facts: false
+  become: yes
+  run_once: yes
+  tasks:
+    - name: Include vars file
+      include_vars:
+        file: ./vars/main.yml
+
+    - name: "Include setup - install"
+      include_role:
+        name: "use"
+        tasks_from: verify-deploy.yml

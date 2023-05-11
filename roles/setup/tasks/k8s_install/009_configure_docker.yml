@@ -1,0 +1,25 @@
+---
+
+- name: "Create docker config directory"
+  file:
+    path: "/etc/docker"
+    state: directory
+    mode: 0700
+
+- name: "Deploy daemon config file"
+  template:
+    src: install/docker-daemon.json.j2
+    dest: /etc/docker/daemon.json
+    mode: 0644
+
+- name: "Enable systemd docker"
+  systemd:
+    enabled: yes
+    name: docker
+
+- name: "Reload the systemd daemon and restart docker"
+  systemd:
+    state: restarted
+    daemon_reload: yes
+    name: docker
+  changed_when: false

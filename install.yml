@@ -1,0 +1,111 @@
+---
+- name: "Create inventory with target host(s)"
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Use inventory Helper to setup ansible inventory
+      ansible.builtin.include_role:
+        name: inventory_helper
+
+- name: Converge - Install docker
+  hosts: all:!target_host:!haproxy
+  gather_facts: yes
+  become: yes
+  become_user: root
+  tasks:
+    - name: "Include fabos.docker.setup - install"
+      include_role:
+        name: fabos.docker.setup
+        tasks_from: install.yml
+
+- name: Converge - Install haproxy
+  hosts: haproxy
+  gather_facts: yes
+  become: yes
+  tasks:
+    - name: "Include setup - haproxy"
+      include_role:
+        name: setup
+        tasks_from: haproxy.yml
+
+- name: Converge - Install k8s
+  hosts: k8s_master:k8s_node
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: "Include setup - install"
+      include_role:
+        name: setup
+        tasks_from: install.yml
+
+- name: Converge - Setup k8s first master
+  hosts: k8s_master[0]
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: "Include setup - setup_master"
+      include_role:
+        name: setup
+        tasks_from: setup_master.yml
+
+- name: Converge - Get master join
+  hosts: k8s_master[0]
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: "Include setup - get_join"
+      include_role:
+        name: setup
+        tasks_from: get_join.yml
+
+- name: Converge - Join other masters
+  hosts: k8s_master[1:]
+  gather_facts: yes
+  become: yes
+  tasks:
+    - name: "Include setup - join_masters"
+      include_role:
+        name: setup
+        tasks_from: join_masters.yml
+
+- name: Converge - Join nodes
+  hosts: k8s_node
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: "Include setup - join_nodes"
+      include_role:
+        name: setup
+        tasks_from: join_nodes.yml
+
+
+
+- name: Converge - Node primer
+  hosts: k8s_master[0]
+  gather_facts: no
+  become: yes
+  tasks:
+    - debug:
+        var: groups
+
+#    - name: "Generate list of nodes to be labeled"
+#      set_fact:
+#        nodes_to_label: "{{ nodes_to_label|d([]) + [item] }}"
+#      loop: "{{ groups['k8s_node'] }}"
+#      when: item not in (groups['target_host'] | default([]))
+
+    - include_role:
+        name: setup
+        tasks_from: node_primer.yml
+      vars:
+        nodes_to_label: "{{ groups['k8s_node'] }}"
+
+- name: "Persist data from play"
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - include_role:
+        name: recap_helper
+        tasks_from: persist_vars.yml

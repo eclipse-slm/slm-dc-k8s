@@ -1,0 +1,12 @@
+#jinja2: trim_blocks:False
+
+listen kubernetes-apiserver-https
+  bind {{ ansible_default_ipv4.address }}:8383
+  mode tcp
+  option log-health-checks
+  timeout client 3h
+  timeout server 3h
+  {%- for host in groups['k8s_master'] -%}
+  server {{ hostvars[host]['ansible_facts']['hostname'] }} {{ hostvars[host]['ansible_default_ipv4']['address'] }}:6443 check check-ssl verify none inter 10000
+  {%- endfor -%}
+  balance roundrobin

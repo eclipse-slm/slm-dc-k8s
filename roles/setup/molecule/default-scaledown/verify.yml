@@ -1,0 +1,50 @@
+---
+
+- name: Get Cluster node facts
+  hosts: k8s_master[0]
+  gather_facts: no
+  run_once: yes
+  become: yes
+  collections:
+    - kubernetes.core
+  tasks:
+    - name: Install required pip modules
+      pip:
+        name:
+          - jsonpatch
+          - kubernetes>12.0.0
+          - PyYAML>3.11
+
+    - name: Get a list of all node objects
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Node
+      register: nodes_output
+      changed_when: false
+
+    - name: Check node count (after scaledown)
+      assert:
+        that: nodes_output.resources | length == 6
+
+
+- name: Verify - K3s
+  hosts: k8s_server[0]
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: Get Cluster info
+      ansible.builtin.shell: "/usr/local/bin/kubectl get nodes"
+      failed_when: false
+      register: output_get_node
+      until: output_get_node.stdout_lines | length == 7
+      retries: 60
+
+    - debug:
+        var: output_get_node.stdout_lines
+
+    - assert:
+        that: output_get_node.stdout_lines | length == 7
+
+    - name: "Evaluate if scaledown_host ({{ hostvars[groups['scale_up_host'][0]]['ansible_facts']['hostname'] }}) is in nodes (missing=success)"
+      assert:
+        that: "{{ output_get_node.stdout_lines | select('search', hostvars[groups['scale_up_host'][0]]['ansible_facts']['hostname']) | length == 0 }}"

@@ -1,0 +1,15 @@
+---
+collections:
+  - name: "https://github.com/eclipse-slm/slm-dc-docker"
+    type: git
+    version: develop
+
+  - name: community.hashi_vault
+    version: 3.3.1
+
+# seems like ansible is not using this file
+#  - name: "https://github.com/ansible-collections/kubernetes.core.git"
+#    type: git
+#    version: 2.3.1
+#  - name: kubernetes.core
+#    version: 2.3.1

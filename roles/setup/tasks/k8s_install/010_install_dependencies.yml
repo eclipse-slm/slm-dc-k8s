@@ -1,0 +1,15 @@
+---
+
+- name: Ensure apt dependencies are installed
+  ansible.builtin.apt:
+    pkg:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gpg
+    state: present
+    update_cache: yes
+  register: apt_action
+  retries: 20
+  delay: 10
+  until: apt_action is success or apt_action.rc is not defined

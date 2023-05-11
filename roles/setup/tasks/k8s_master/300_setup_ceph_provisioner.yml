@@ -1,0 +1,85 @@
+---
+# Based on following tutorial: https://docs.ceph.com/en/latest/rbd/rbd-kubernetes/
+# On Github: https://github.com/ceph/ceph/blob/master/doc/rbd/rbd-kubernetes.rst
+# Latest commit 4f48612
+
+- name: "Ensure inputs are available"
+  assert:
+    that:
+      - cluster_fsid is defined and cluster_fsid|length > 0
+      - cluster_pool_name is defined and cluster_pool_name|length > 0
+      - cluster_user_key is defined and cluster_user_key|length > 0
+      - cluster_mon_list is defined and cluster_mon_list|length > 0
+
+- name: Create a directory for the config files
+  file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - "/etc/ceph/"
+    - "/etc/ceph/config/"
+    - "/etc/ceph/samples/"
+
+- name: "Ensure all template files are rendered"
+  template:
+    src: '{{ item.src }}'
+    dest: '/etc/ceph/{{ item.dest }}'
+    #    owner: root
+    #    group: root
+    #    mode: 0644
+  loop:
+    - src: 'templates/csi-config-map.yaml.j2'
+      dest: 'config/csi-config-map.yaml'
+    - src: 'templates/csi-kms-config-map.yaml.j2'
+      dest: 'config/csi-kms-config-map.yaml'
+    - src: 'templates/ceph-config-map.yaml.j2'
+      dest: 'config/ceph-config-map.yaml'
+    - src: 'templates/csi-rbd-sc.yaml.j2'
+      dest: 'config/csi-rbd-sc.yaml'
+    - src: 'templates/csi-rbd-secret.yaml.j2'
+      dest: 'config/csi-rbd-secret.yaml'
+    - src: 'templates/raw-block-pod.yaml.j2'
+      dest: 'samples/raw-block-pod.yaml'
+    - src: 'templates/raw-block-pvc.yaml.j2'
+      dest: 'samples/raw-block-pvc.yaml'
+    - src: 'templates/rbd-pod.yaml.j2'
+      dest: 'samples/rbd-pod.yaml'
+    - src: 'templates/rbd-pvc.yaml.j2'
+      dest: 'samples/rbd-pvc.yaml'
+  register: result_ceph_template_deploy
+
+- name: "Download the required deployment files"
+  get_url:
+    url: "{{ item.url }}"
+    dest: "/etc/ceph/config/{{ item.dest }}"
+#    owner: root
+#    group: root
+#    mode: 0600
+    force: True
+  loop:
+    - url: 'https://raw.githubusercontent.com/ceph/ceph-csi/master/deploy/rbd/kubernetes/csi-provisioner-rbac.yaml'
+      dest: 'csi-provisioner-rbac.yaml'
+    - url: 'https://raw.githubusercontent.com/ceph/ceph-csi/master/deploy/rbd/kubernetes/csi-nodeplugin-rbac.yaml'
+      dest: 'csi-nodeplugin-rbac.yaml'
+    - url: 'https://raw.githubusercontent.com/ceph/ceph-csi/master/deploy/rbd/kubernetes/csi-rbdplugin-provisioner.yaml'
+      dest: 'csi-rbdplugin-provisioner.yaml'
+    - url: 'https://raw.githubusercontent.com/ceph/ceph-csi/master/deploy/rbd/kubernetes/csi-rbdplugin.yaml'
+      dest: 'csi-rbdplugin.yaml'
+  register: result_ceph_template_download
+
+- name: "Apply deployed templates"
+  command: "kubectl apply -f /etc/ceph/config/{{ item }}"
+  with_items:
+    - csi-config-map.yaml
+    - csi-kms-config-map.yaml
+    - ceph-config-map.yaml
+    - csi-rbd-sc.yaml
+    - csi-rbd-secret.yaml
+    - csi-provisioner-rbac.yaml
+    - csi-nodeplugin-rbac.yaml
+    - csi-rbdplugin-provisioner.yaml
+    - csi-rbdplugin.yaml
+  register: deploy_result
+  changed_when: "'created' in deploy_result.stdout"
+#  when: result_ceph_template_deploy
+  run_once: yes

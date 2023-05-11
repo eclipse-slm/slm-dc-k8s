@@ -1,0 +1,87 @@
+---
+# based on: https://krew.sigs.k8s.io/docs/user-guide/setup/install/
+
+
+- name: Ensure git is installed
+  apt:
+    name: git
+    state: present
+    update_cache: yes
+  register: apt_action
+  retries: 10
+  until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+
+- name: Check OS string
+  shell: "uname | tr '[:upper:]' '[:lower:]'"
+  register: krew_os
+  changed_when: no
+
+- name: Check ARCH string
+  shell: "uname -m | sed -e 's/x86_64/amd64/' -e 's/\\(arm\\)\\(64\\)\\?.*/\\1\\2/' -e 's/aarch64$/arm64/'"
+  register: krew_arch
+  changed_when: no
+
+- name: Fetch krew
+  get_url:
+    url: "{{ krew_repository }}/krew-{{krew_os.stdout}}_{{krew_arch.stdout}}.tar.gz"
+    dest: /tmp/krew.tar.gz
+
+- name: Make tempdir
+  file:
+    path: /tmp/krew
+    state: directory
+
+- name: Unarchive krew
+  unarchive:
+    src: /tmp/krew.tar.gz
+    dest: /tmp/krew
+    remote_src: true
+
+- name: Set fact Amd64 fact on x86_64 platforms
+  set_fact:
+    linux_platform: amd64
+  when: ansible_architecture == "x86_64"
+
+- name: Set fact Arm fact on Arm platforms
+  set_fact:
+    linux_platform: arm
+  when: ansible_architecture == "arm"
+
+- name: "Run 'Krew install'"
+  shell: "/tmp/krew/krew-{{ ansible_system|lower }}_{{ linux_platform }} install krew"
+  register: krew_install_output
+  changed_when: krew_install_output.stdout != ""
+
+#- name: "Add krew to path"
+#  copy:
+#    dest: /etc/profile.d/krew.sh
+#    content: |
+#      PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+
+- name: add to path (by /etc/environment)
+  lineinfile:
+    path: /etc/environment
+    state: present
+    backrefs: yes
+    regexp: 'PATH=(["]*)((?!.*?{{extra_path}}).*?)(["]*)$'
+    line: >
+      PATH=\1\2:{{extra_path}}\3
+  vars:
+    extra_path: /root/.krew/bin
+
+
+#- name: Copy krew plugin to /usr/local/bin
+#  copy:
+#    src: "/tmp/krew/krew-{{ ansible_system|lower }}_{{ linux_platform }}"
+#    dest: /usr/local/bin/kubectl-krew
+#    mode: 0755
+#    remote_src: true
+
+- name: Run Krew Update
+  shell: kubectl krew update
+  args:
+    creates: /root/.krew/index/plugins/krew_plugins.yaml
+  environment:
+    PATH: /root/.krew/bin:{{ ansible_env.PATH }}
+  register: krew_install_output
+  changed_when: krew_install_output.stdout != ""

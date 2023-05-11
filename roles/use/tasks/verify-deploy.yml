@@ -1,0 +1,57 @@
+---
+
+- name: Install required pip modules
+  pip:
+    name:
+      - jsonpatch
+      - kubernetes>12.0.0
+      - PyYAML>3.11
+
+
+- name: Check if Kubernetes config is available.
+  stat:
+    path: /etc/kubernetes/admin.conf
+
+- name: Get Namespace
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ service_id }}"
+    kubeconfig: /etc/kubernetes/admin.conf
+  register: ns_info
+
+- assert:
+    that: ns_info.resources | length == 1
+
+- name: Get Service
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Service
+    namespace: "{{ service_id }}"
+    kubeconfig: /etc/kubernetes/admin.conf
+  register: service_info
+
+- assert:
+    that: service_info.resources | length == 1
+
+- name: Get Deployment
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Deployment
+    namespace: "{{ service_id }}"
+    kubeconfig: /etc/kubernetes/admin.conf
+  register: deployment_info
+
+- assert:
+    that: (deployment_info.resources | selectattr("metadata.name", "equalto", "mariadb-service") ) [0].status.conditions[0].type == "Available"
+
+#- name: Get PVC
+#  kubernetes.core.k8s_info:
+#    api_version: v1
+#    kind: PersistentVolumeClaim
+#    namespace: "{{ service_id }}"
+#    kubeconfig: /etc/rancher/k3s/k3s.yaml
+#  register: pvc_info
+#
+#- assert:
+#    that: pvc_info.resources | length == 1

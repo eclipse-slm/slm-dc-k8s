@@ -1,0 +1,60 @@
+---
+dependency:
+  name: galaxy
+driver:
+  name: delegated
+platforms:
+
+  - name: ubuntu2204-0
+    template_name: ubuntu-22-04
+    groups:
+      - haproxy
+
+  - name: ubuntu2204-1
+    template_name: ubuntu-22-04
+    groups:
+      - k8s_master
+
+  - name: ubuntu2204-2
+    template_name: ubuntu-22-04
+    groups:
+      - k8s_master
+
+  - name: ubuntu2204-3
+    template_name: ubuntu-22-04
+    groups:
+      - k8s_master
+
+  - name: ubuntu2204-4
+    template_name: ubuntu-22-04
+    groups:
+      - k8s_node
+
+  - name: ubuntu2204-5
+    template_name: ubuntu-22-04
+    groups:
+      - k8s_node
+
+  - name: ubuntu2204-6
+    template_name: ubuntu-22-04
+    groups:
+      - k8s_node
+
+  - name: ubuntu2204-7
+    template_name: ubuntu-22-04
+    groups:
+      - k8s_node
+      - scale_up_host
+      - scale_down_host
+
+provisioner:
+  name: ansible
+  playbooks:
+    create: ../default/create.yml
+#    prepare: ../default-install/converge.yml
+    destroy: ../default/destroy.yml
+    converge: ../default-uninstall/converge.yml
+    verify: ../default-uninstall/verify.yml
+
+verifier:
+  name: ansible

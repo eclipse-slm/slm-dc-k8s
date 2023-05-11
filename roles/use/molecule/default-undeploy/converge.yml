@@ -1,0 +1,16 @@
+---
+- name: Converge
+  hosts: k8s_master[0]
+  gather_facts: no
+
+  become: yes
+  run_once: yes
+  tasks:
+    - name: Include vars file
+      include_vars:
+        file: ./vars/main.yml
+
+    - name: Include use - undeploy
+      include_role:
+        name: use
+        tasks_from: undeploy.yml

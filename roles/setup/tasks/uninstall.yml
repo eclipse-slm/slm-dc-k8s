@@ -1,0 +1,57 @@
+---
+- name: Include OS-specific variables.
+  include_vars: "{{ ansible_os_family }}.yml"
+
+- name: Check if Kubernetes is available
+  stat:
+    path: '/etc/kubernetes'
+  register: kubernetes_etc_stat
+
+- name: Kubeadm reset
+  ansible.builtin.shell: "kubeadm reset --force"
+  register: output_delete
+  failed_when:
+    - output_delete.rc == 1
+    - not 'not found' in output_delete.stderr
+  changed_when: output_delete.rc == 0
+  until: output_delete.rc == 0 or 'not found' in output_delete.stderr
+  retries: 10
+  when: kubernetes_etc_stat.stat.exists
+  delay: "{{ retry_delay_stagger | random + 3 }}"
+
+#- name: dpkg --configure -a
+#  ansible.builtin.command: dpkg --configure -a
+#  changed_when: false
+#  register: dpkg_config
+#  retries: 20
+#  until: dpkg_config.rc == 0
+
+- name: (Debian) Update APT cache
+  apt:
+    cache_valid_time: "1"
+    state: present
+    update_cache: true
+  when: ansible_os_family == "Debian"
+  changed_when: false
+
+- name: Uninstall packages
+  ansible.builtin.apt:
+    name: "{{ item.name | default(item) }}"
+    state: absent
+  loop: "{{ kubernetes_packages }}"
+  register: apt_action
+  retries: 20
+  delay: 10
+  until: apt_action is success or apt_action.rc is not defined
+
+- name: Remove dependencies that are no longer required
+  ansible.builtin.apt:
+    autoremove: yes
+
+- name: Delete content in '.kube' directory
+  file:
+    state: absent
+    path: "{{ item }}"
+  loop:
+    - '~/.kube'
+    - '/etc/kubernetes'

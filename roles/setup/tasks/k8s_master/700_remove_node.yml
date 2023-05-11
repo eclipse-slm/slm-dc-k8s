@@ -1,0 +1,39 @@
+- set_fact:
+    scale_down_node_names: "{{ scale_down_node_names | default ([]) + [ hostvars[item].ansible_hostname ] }}"
+  loop: "{{ groups['target_host'] }}"
+
+- name: Cordon node(s)
+  ansible.builtin.shell: "kubectl cordon {{ item }}"
+  loop: "{{ scale_down_node_names }}"
+  register: output_cordon
+  failed_when:
+    - output_cordon.rc == 1
+    - not 'not found' in output_cordon.stderr
+  changed_when: output_cordon.rc == 0
+  until: output_cordon.rc == 0 or 'not found' in output_cordon.stderr
+  delay: "{{ retry_delay_stagger | random + 3 }}"
+  retries: 10
+
+- name: Drain node(s)
+  ansible.builtin.shell: "kubectl drain {{ item }} --ignore-daemonsets"
+  loop: "{{ scale_down_node_names }}"
+  register: output_cordon
+  failed_when:
+    - output_cordon.rc == 1
+    - not 'not found' in output_cordon.stderr
+  changed_when: output_cordon.rc == 0
+  until: output_cordon.rc == 0 or 'not found' in output_cordon.stderr
+  delay: "{{ retry_delay_stagger | random + 3 }}"
+  retries: 10
+
+- name: Delete node(s)
+  ansible.builtin.shell: "kubectl delete node {{ item }}"
+  loop: "{{ scale_down_node_names }}"
+  register: output_delete
+  failed_when:
+    - output_delete.rc == 1
+    - not 'not found' in output_delete.stderr
+  changed_when: output_delete.rc == 0
+  until: output_delete.rc == 0 or 'not found' in output_delete.stderr
+  retries: 10
+  delay: "{{ retry_delay_stagger | random + 3 }}"

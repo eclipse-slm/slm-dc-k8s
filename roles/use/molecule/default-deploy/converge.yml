@@ -1,0 +1,57 @@
+---
+- name: Check required parameters from Vault
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  run_once: yes
+  tasks:
+    - set_fact:
+        vault_lookup_base_info: "http://localhost:8200"
+        resource_id: "2b5a0256-1483-4bcc-a10f-aa51cce0272a"
+
+    - name: "Read 'kubeconfig' from Vault"
+      set_fact:
+        kubernetes_kubeconfig: "{{ lookup('community.hashi_vault.hashi_vault', '{{ vault_lookup_base_info }} secret=resources/data/{{ resource_id }}:kubeconfig') | default('') }}"
+      no_log: no
+      ignore_errors: yes
+
+    - name: "Read 'namespace' from Vault"
+      set_fact:
+        kubernetes_namespace: "{{ lookup('community.hashi_vault.hashi_vault', '{{ vault_lookup_base_info }} secret=resources/data/{{ resource_id }}:namespace') | default('') }}"
+      no_log: no
+      ignore_errors: yes
+
+    - debug:
+        msg: "No Namespace defined"
+      when: not kubernetes_namespace is defined
+
+#    - name: "Check required variables"
+#      assert:
+#        that: "{{ item.name }} is defined"
+#        fail_msg: "Missing variable '{{ item.name }}': {{ item.description }}"
+#      loop: "{{ deployment_parameters }}"
+
+- name: Converge
+  hosts: k8s_master[0]
+  gather_facts: no
+
+  become: yes
+  run_once: yes
+  tasks:
+    - name: Include vars file
+      include_vars:
+        file: ./vars/main.yml
+
+    - name: Include use - deploy_with_kubeconfig
+      include_role:
+        name: use
+        tasks_from: deploy_with_kubeconfig.yml
+      when:
+        - kubernetes_namespace is defined
+        - kubernetes_kubeconfig is defined
+
+    - name: Include use - deploy
+      include_role:
+        name: use
+        tasks_from: deploy.yml
+      when: not kubernetes_namespace is defined

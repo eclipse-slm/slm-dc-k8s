@@ -1,0 +1,17 @@
+---
+roles:
+  - src: "git+https://github.com/FabOS-AI/molecule_vsphere.git"
+    scm: git
+    version: fix-set-hostname
+    name: molecule_vsphere
+
+collections:
+  - name: "https://github.com/FabOS-AI/fabos-slm-dc-docker"
+    type: git
+    version: develop
+
+  - name: "https://github.com/ansible-collections/kubernetes.core.git"
+    type: git
+    version: 2.3.2
+#  - name: kubernetes.core
+#    version: 2.3.1

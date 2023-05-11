@@ -1,0 +1,8 @@
+---
+
+
+- name: Include OS-specific variables.
+  include_vars: "{{ ansible_os_family }}.yml"
+
+- name: Include 'Remove node(s)' task
+  include_tasks: k8s_master/700_remove_node.yml

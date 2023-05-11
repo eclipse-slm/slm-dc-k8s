@@ -1,0 +1,56 @@
+# according to https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+# Make sure that the br_netfilter module is loaded
+# As a requirement for your Linux Node's iptables to correctly see bridged traffic, you should ensure net.bridge.bridge-nf-call-iptables is set to 1
+
+
+- name: Stat sysctl file configuration
+  stat:
+    path: "{{ sysctl_file_path }}"
+    get_attributes: no
+    get_checksum: no
+    get_mime: no
+  register: sysctl_file_stat
+
+- name: Change sysctl file path to link source if linked
+  set_fact:
+    sysctl_file_path: "{{ sysctl_file_stat.stat.lnk_source }}"
+  when:
+    - sysctl_file_stat.stat.islnk is defined
+    - sysctl_file_stat.stat.islnk
+
+#- name: Make sure sysctl file path folder exists
+#  file:
+#    name: "{{ sysctl_file_path | dirname }}"
+#    state: directory
+
+- name: Add the br_netfilter module
+  modprobe:
+    name: br_netfilter
+    state: present
+
+
+- name: Enable ip forwarding
+  sysctl:
+    sysctl_file: "{{ sysctl_file_path }}"
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- name: Enable ip bridge forwarding
+  sysctl:
+    sysctl_file: "{{ sysctl_file_path }}"
+    name: net.bridge.bridge-nf-call-iptables
+    value: "1"
+    state: present
+    reload: yes
+
+- name: Enable ipv6 bridge forwarding
+  sysctl:
+    sysctl_file: "{{ sysctl_file_path }}"
+    name: net.bridge.bridge-nf-call-ip6tables
+    value: "1"
+    state: present
+    reload: yes
+

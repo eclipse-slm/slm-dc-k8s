@@ -1,0 +1,43 @@
+---
+- name: Converge - Gather facts
+  hosts: all
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: Gather Facts
+      ansible.builtin.setup:
+        gather_subset:
+          - min
+          - network
+      register: setup_result
+      until: setup_result.failed != true
+      retries: 10
+
+#- name: Converge - Uninstall k8s
+#  hosts: scale_down_host
+#  gather_facts: no
+#  become: yes
+#  collections:
+#    - fabos.k8s
+#  tasks:
+#    - name: "Include fabos.docker.setup preinstall - Update APT Cache"
+#      apt:
+#        update_cache: yes
+#        force_apt_get: yes
+#    - name: "Include fabos.k8s.setup - install"
+#      include_role:
+#        name: fabos.k8s.setup
+#        tasks_from: uninstall.yml
+
+- name: Converge - Scale Down Host
+  hosts: k8s_master[0]
+  run_once: yes
+  gather_facts: no
+  become: yes
+  collections:
+    - fabos.k8s
+  tasks:
+    - name: Include K8s - remove_node.yml
+      include_role:
+        name: setup
+        tasks_from: remove_node.yml

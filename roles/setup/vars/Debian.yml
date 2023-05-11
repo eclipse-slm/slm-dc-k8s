@@ -1,0 +1,144 @@
+---
+# DEBIAN vars file for kubernetes
+procps_package: procps
+kubelet_environment_file_path: /etc/default/kubelet
+
+# defaults file for k8s_install
+########################################################################################################################
+### (APT) Package and Version specification
+
+kubernetes_version: '1.21'
+kubernetes_packages:
+  - name: "kubelet={{ kubernetes_version }}.*"
+  - name: "kubectl={{ kubernetes_version }}.*"
+  - name: "kubeadm={{ kubernetes_version }}.*"
+  - name: "kubernetes-cni"
+
+# Note that xenial repo is used for all Debian derivatives at this time.
+kubernetes_apt_release_channel: main
+kubernetes_apt_repository: "deb https://apt.kubernetes.io/ kubernetes-xenial {{ kubernetes_apt_release_channel }}"
+kubernetes_apt_ignore_key_error: false
+
+#kubernetes_yum_arch: '$basearch'
+#kubernetes_yum_base_url: "https://packages.cloud.google.com/yum/repos/kubernetes-el7-{{ kubernetes_yum_arch }}"
+#kubernetes_yum_gpg_key:
+#  - https://packages.cloud.google.com/yum/doc/yum-key.gpg
+#  - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+
+# sysctl
+sysctl_file_path: "/etc/sysctl.d/99-sysctl.conf"
+
+########################################################################################################################
+### Pin cgroup driver
+
+#kubernetes_kubeadm_kubelet_config_file_path: '/etc/kubernetes/kubeadm-kubelet-config.yaml'
+kubernetes_config_kubelet_configuration:
+  cgroupDriver: "systemd"
+
+### GENERAL ############################################################################################################
+kubernetes_version_kubeadm: 'stable-{{ kubernetes_version }}'
+kubeadm_config_cluster_initial_name: ansible-cluster
+kubernetes_kubeadm_kubelet_config_file_path: '/etc/kubernetes/kubeadm-kubelet-config.yaml'
+kubernetes_config_kubelet_configuration:
+  cgroupDriver: "systemd"
+
+
+
+### NETWORKING #########################################################################################################
+
+# local API endpoint address
+kubernetes_apiserver_advertise_address: ''
+# use jinja to create yaml list of all api-Server hosts
+control_plane_endpoints: "[{% for host in groups['k8s_master'] %}'https://{{ hostvars[host].ansible_default_ipv4.address }}:2379'{% if not loop.last %},{% endif %}{% endfor %}]"
+
+# pod subnet cidr according to docu
+kubernetes_pod_network:
+#  # Flannel CNI.
+#  cni: 'flannel'
+#  cidr: '10.244.0.0/16'
+  # WeaveNet https://www.weave.works/blog/weave-net-kubernetes-integration/
+  cni: 'weave'
+  cidr: ""
+#   # Calico CNI.
+#   cni: 'calico'
+#   cidr: '192.168.0.0/16'
+
+# Weavnet config files.
+kubernetes_weavnet_manifest_file: https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml
+
+# Flannel config files.
+kubernetes_network_config_path: "/etc/kubernetes/network_config/"
+kubernetes_flannel_manifest_file_rbac: https://raw.githubusercontent.com/coreos/flannel/master/Documentation/k8s-manifests/kube-flannel-rbac.yml
+kubernetes_flannel_manifest_file: https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+
+# Calico config files
+kubernetes_calico_manifest_file: https://docs.projectcalico.org/v3.10/manifests/calico.yaml
+
+#  https://docs.projectcalico.org/manifests/tigera-operator.yaml
+#  https://docs.projectcalico.org/manifests/custom-resources.yaml
+
+
+
+### INIT/JOIN ##########################################################################################################
+
+kubernetes_ignore_preflight_errors: 'NumCPU'
+kubernetes_kubeadm_init_extra_opts: "--v=8"
+kubernetes_join_command_extra_opts: "--v=8"
+kubernetes_allow_pods_on_master: true
+kubernetes_enable_web_ui: true
+# https://github.com/kubernetes/dashboard/blob/master/docs/user/installation.md
+kubernetes_web_ui_manifest_file: https://raw.githubusercontent.com/kubernetes/dashboard/v2.3.1/aio/deploy/recommended.yaml
+
+
+
+### CONFIG SKELETON ####################################################################################################
+
+# main CLUSTER config skeleton
+kubernetes_config_cluster_configuration:
+#  networking:
+#    podSubnet: "{{ kubernetes_pod_network.cidr }}"
+  kubernetesVersion: "{{ kubernetes_version_kubeadm }}"
+  clusterName: "{{ kubeadm_config_cluster_initial_name }}"
+  controlPlaneEndpoint: "{{ hostvars[groups['haproxy'][0]]['ansible_default_ipv4']['address'] }}:6443"
+#  etcd:
+#    external:
+#      endpoints: "{{ control_plane_endpoints | from_yaml | list }}"
+#      caFile: /etc/etcd/https/ca.crt
+#      certFile: /etc/etcd/https/kube-apiserver-etcd-client.crt
+#      keyFile: /etc/etcd/https/kube-apiserver-etcd-client.key
+  apiServer:
+    certSANs:
+      - "{{ hostvars[groups['haproxy'][0]]['ansible_default_ipv4']['address'] }}"
+
+# main INIT config skeleton
+kubernetes_config_init_configuration:
+  localAPIEndpoint:
+    advertiseAddress: "{{ kubernetes_apiserver_advertise_address | default(ansible_default_ipv4.address, true) }}"
+    bindPort: 6443
+# if you use the next lines, remove the command line argument below
+# nodeRegistration:
+#    ignorePreflightErrors:
+#      - all
+
+### unspecific defaults ################################################################################################
+
+# retry delay stagger, is used for jinja random filter
+retry_delay_stagger: 5
+
+
+#### keepalived config defaults
+# from: https://github.com/kubernetes/kubeadm/blob/master/docs/ha-considerations.md#options-for-software-load-balancing
+keepalived_state:           MASTER
+keepalived_interface:       ens192
+keepalived_router_id:       51
+keepalived_priority:        101
+keepalived_auth_pass:       42
+keepalived_apiserver_vip:   "{{ ansible_default_ipv4.address }}"
+keepalived_dest_port:       6443
+
+### helm defaults ################################################################################################
+helm_version: v3.10.1
+
+### krew defaults ################################################################################################
+krew_repository: "https://github.com/kubernetes-sigs/krew/releases/latest/download"
+

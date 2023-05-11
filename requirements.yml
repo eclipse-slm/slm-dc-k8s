@@ -1,0 +1,24 @@
+---
+roles:
+  - src: "git+https://github.com/FabOS-AI/molecule_vsphere.git"
+    scm: git
+    version: main
+    name: molecule_vsphere
+  - src: "git+https://github.com/eclipse-slm/slm-ansible-role-inventory-helper"
+    scm: git
+    version: main
+    name: inventory_helper
+
+collections:
+  - name: "https://github.com/eclipse-slm/slm-dc-docker"
+    type: git
+    version: develop
+
+  - name: "https://github.com/ansible-collections/kubernetes.core.git"
+    type: git
+    version: 2.3.2
+#  - name: kubernetes.core
+#    version: 2.3.1
+
+  - name: community.hashi_vault
+    version: 3.3.1

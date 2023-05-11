@@ -1,0 +1,35 @@
+---
+
+#- name: Remove previous config
+#  file:
+#    path: "{{ item }}"
+#    state: absent
+#  with_items:
+#    - "/etc/kubernetes/manifests"
+#    - "/etc/kubernetes/kubelet.conf"
+
+- name: Check if Kubernetes has already been initialized.
+  stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubernetes_init_stat
+
+# TODO: add kubernetes_join_command_extra_opts again
+- name: Join master to Kubernetes
+  shell:
+    cmd: "{{ kubernetes_join_command_master }}"
+#    creates: "/etc/kubernetes/kubelet.conf"
+  tags: ['skip_ansible_lint']
+  retries: 5
+  delay: "{{ retry_delay_stagger | random + 3 }}"
+  when: not kubernetes_init_stat.stat.exists
+
+
+## TODO: Check if taint exists with something like `kubectl describe nodes`
+## instead of using kubernetes_init_stat.stat.exists check.
+#- name: Allow pods on master node (if configured).
+#  command: "kubectl taint nodes --all node-role.kubernetes.io/master-"
+#  when:
+#    - kubernetes_allow_pods_on_master | bool
+##    - not kubernetes_init_stat.stat.exists
+#  delegate_to: k8s_master[0]
+#  delegate_facts: yes

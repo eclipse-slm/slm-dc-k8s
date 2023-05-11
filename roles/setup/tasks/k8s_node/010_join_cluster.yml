@@ -1,0 +1,9 @@
+---
+
+- name: "Join worker node"
+  shell:
+    cmd: "{{ kubernetes_join_command_node }}"
+    creates: "/etc/kubernetes/kubelet.conf"
+  tags: [ 'skip_ansible_lint' ]
+  retries: 5
+  delay: "{{ retry_delay_stagger | random + 3 }}"

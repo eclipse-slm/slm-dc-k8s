@@ -1,0 +1,43 @@
+---
+
+### LOAD VARS
+- name: Include OS-specific variables.
+  include_vars: "{{ ansible_os_family }}.yml"
+
+
+### Preinstall
+- name: Set sysctl settings
+  include_tasks: 007_iptables_config.yml
+
+- name: Disable swap
+  include_tasks: 008_disable-swap.yml
+
+- name: Include configure Docker daemon cgroups
+  include_tasks: 009_configure_docker.yml
+  when: kubernetes_config_kubelet_configuration.cgroupDriver == "systemd"
+
+- name: Ensure required packages installed
+  include_tasks: 010_install_dependencies.yml
+
+- name: Add kubernetes apt repo
+  include_tasks: 020_add_repo.yml
+
+### Install
+- name: Install kubernetes binaries
+  include_tasks: 030_install_binaries.yml
+
+### Enable and Postinstall
+- name: Ensure kubelet is started and enabled at boot.
+  service:
+    name: kubelet
+    state: started
+    enabled: true
+
+- name: Pre-pull kubernetes images
+  shell: kubeadm config images pull
+  changed_when: false
+
+- name: Check if Kubernetes has already been initialized.
+  stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubernetes_init_stat

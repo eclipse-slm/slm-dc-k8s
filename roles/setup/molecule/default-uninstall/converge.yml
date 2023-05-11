@@ -1,0 +1,24 @@
+---
+- name: Converge - Kubeadm reset
+  hosts: k8s_master[0]
+  gather_facts: yes
+  become: yes
+  collections:
+    - fabos.k8s
+  tasks:
+    - name: "Include fabos.k8s.setup - uninstall"
+      include_role:
+        name: setup
+        tasks_from: uninstall.yml
+
+- name: Converge - Uninstall haproxy
+  hosts: haproxy
+  gather_facts: no
+  become: yes
+  collections:
+    - fabos.k8s
+  tasks:
+    - name: "Include fabos.k8s.setup - haproxy-uninstall.yml"
+      include_role:
+        name: setup
+        tasks_from: haproxy-uninstall.yml

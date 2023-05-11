@@ -1,0 +1,41 @@
+---
+
+- name: Disable swap
+  include_tasks: ../k8s_install/008_disable-swap.yml
+
+### Preinstall
+- name: Set sysctl settings
+  include_tasks: ../k8s_install/007_iptables_config.yml
+
+- name: Disable swap
+  include_tasks: ../k8s_install/008_disable-swap.yml
+
+- name: Include configure Docker daemon cgroups
+  include_tasks: ../k8s_install/009_configure_docker.yml
+  when: kubernetes_config_kubelet_configuration.cgroupDriver == "systemd"
+
+- name: Ensure required packages installed
+  include_tasks: ../k8s_install/010_install_dependencies.yml
+
+- name: Add kubernetes apt repo
+  include_tasks: ../k8s_install/020_add_repo.yml
+
+### Install
+- name: Install kubernetes binaries
+  include_tasks: ../k8s_install/030_install_binaries.yml
+
+### Enable and Postinstall
+- name: Ensure kubelet is started and enabled at boot.
+  service:
+    name: kubelet
+    state: started
+    enabled: true
+
+- name: Pre-pull kubernetes images
+  shell: kubeadm config images pull
+  changed_when: false
+
+- name: Check if Kubernetes has already been initialized.
+  stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubernetes_init_stat

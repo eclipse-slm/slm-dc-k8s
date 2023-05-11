@@ -1,0 +1,50 @@
+---
+# tasks file for haproxy
+- name: Install haproxy package (APT)
+  apt:
+    update_cache: yes
+    pkg:
+      - haproxy
+      - keepalived
+  when: ansible_os_family == "Debian"
+
+#- name: Add keepalived configuration template
+#  template:
+#    src: haproxy/kubeadm_keepalived_conf.j2
+#    dest: /etc/keepalived/keepalived.conf
+#    mode: 0644
+#
+#- name: Add keepalived healthcheck template
+#  template:
+#    src: haproxy/kubeadm_keepalived_health.sh.j2
+#    dest: /etc/keepalived/check_apiserver.sh
+#    mode: 0777
+
+- name: Add haproxy configuration template
+  template:
+    src: haproxy/kubeadm_haproxy_conf.j2
+    dest: /etc/haproxy/haproxy.cfg
+    mode: 0644
+
+#- name: Populate haproxy configuration
+#  blockinfile:
+#    path: /etc/haproxy/haproxy.cfg
+#    block: "{{ lookup('template', 'kubespray_haproxy_conf.j2') }}"
+#    state: present
+#    backup: yes
+#    insertafter: EOF
+
+- name: Ensure HAProxy is started and enabled on boot
+  ansible.builtin.systemd:
+    name: haproxy
+    state: restarted
+    enabled: yes
+  changed_when: false
+#  register: haproxy_enable_output
+#  failed_when: not haproxy_enable_output.enabled and haproxy_enable_output.state != "started"
+
+#- name: Ensure keepalived is started and enabled on boot.
+#  service:
+#    name: keepalived
+#    state: restarted
+#    enabled: yes

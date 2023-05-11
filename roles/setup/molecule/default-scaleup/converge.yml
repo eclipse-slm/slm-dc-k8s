@@ -1,0 +1,89 @@
+---
+- name: Converge - Gather facts
+  hosts: all
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: Gather Facts
+      ansible.builtin.setup:
+        gather_subset:
+          - min
+          - network
+      register: setup_result
+      until: setup_result.failed != true
+      retries: 10
+
+- name: Converge - Install docker
+  hosts: scale_up_host
+  gather_facts: no
+  become: yes
+  become_user: root
+  collections:
+    - fabos.docker
+  tasks:
+#    - name: "Include fabos.docker.setup preinstall - Remove apt lock file"
+#      file:
+#        state: absent
+#        path: "/var/lib/apt/lists/lock"
+#    - name: "Include fabos.docker.setup preinstall - Update APT Cache"
+#      apt:
+#        update_cache: yes
+#        force_apt_get: yes
+    - name: "Include fabos.docker.setup - install"
+      include_role:
+        name: fabos.docker.setup
+        tasks_from: install.yml
+
+- name: Converge - Install k8s
+  hosts: scale_up_host
+  gather_facts: no
+  become: yes
+  collections:
+    - fabos.k8s
+  tasks:
+#    - name: "Include fabos.docker.setup preinstall - Update APT Cache"
+#      apt:
+#        update_cache: yes
+#        force_apt_get: yes
+    - name: "Include fabos.k8s.setup - install"
+      include_role:
+        name: fabos.k8s.setup
+        tasks_from: install.yml
+
+- name: Converge - Get join tokens
+  hosts: k8s_master[0]
+  gather_facts: no
+  become: yes
+  collections:
+    - fabos.k8s
+  tasks:
+    - name: "Include fabos.k8s.setup - get_join"
+      include_role:
+        name: fabos.k8s.setup
+        tasks_from: get_join.yml
+
+- name: Converge - Join node
+  hosts: scale_up_host
+  gather_facts: no
+  become: yes
+  collections:
+    - fabos.k8s
+  tasks:
+    - name: "Include fabos.k8s.setup - join_nodes"
+      include_role:
+        name: fabos.k8s.setup
+        tasks_from: join_nodes.yml
+
+- name: Converge - Label node
+  hosts: k8s_master[0]
+  gather_facts: no
+  become: yes
+  collections:
+    - fabos.k8s
+  tasks:
+    - name: "Include fabos.k8s.setup - Label worker nodes"
+      include_role:
+        name: fabos.k8s.setup
+        tasks_from: k8s_master/400_label_nodes.yml
+      vars:
+        nodes_to_label: "{{ groups['scale_up_host'] }}"

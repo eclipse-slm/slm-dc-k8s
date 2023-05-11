@@ -1,0 +1,50 @@
+---
+
+- name: (Debian) Update APT cache
+  apt:
+    cache_valid_time: "1"
+    state: present
+    update_cache: true
+  when: ansible_os_family == "Debian"
+  retries: 20
+  register: apt_cache_output
+  until: apt_cache_output.failed == false
+  changed_when: false
+
+#- debug:
+#    var: apt_cache_output
+
+#- name: "Include fabos.docker.setup preinstall - Remove apt lock file"
+#  file:
+#    state: absent
+#    path: "/var/lib/apt/lists/lock"
+#  when: apt_cache_output.failed
+
+#- name: dpkg --configure -a
+#  ansible.builtin.command: dpkg --configure -a
+#  changed_when: false
+#  register: dpkg_config
+#  retries: 20
+#  until: dpkg_config.rc == 0
+
+
+
+#- name: Install Kubernetes packages.
+#  package:
+#    name: "{{ item.name | default(item) }}"
+#    state: "{{ item.state | default('present') }}"
+#  notify: restart kubelet
+#  with_items: "{{ kubernetes_packages }}"
+
+
+
+- name: Install packages
+  ansible.builtin.apt:
+    pkg: "{{ item.name | default(item) }}"
+    state: present
+    update_cache: yes
+  loop: "{{ kubernetes_packages }}"
+  register: apt_action
+  retries: 20
+  delay: 10
+  until: apt_action is success or apt_action.rc is not defined

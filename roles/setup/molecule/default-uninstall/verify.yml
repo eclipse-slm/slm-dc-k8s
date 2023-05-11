@@ -1,0 +1,17 @@
+---
+# This is an example playbook to execute Ansible tests.
+
+- name: Verify
+  hosts: k8s_master[0]
+  gather_facts: false
+  tasks:
+    - name: Get Cluster info
+      ansible.builtin.shell: "kubectl get node"
+      failed_when: false
+      register: output_get_node
+
+    - assert:
+        that: output_get_node.rc != 0
+
+    - debug:
+        var: output_get_node.stderr

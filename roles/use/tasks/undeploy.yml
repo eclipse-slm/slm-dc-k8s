@@ -1,0 +1,37 @@
+---
+- name: "Check required variables"
+  assert:
+    that: "{{ item.name }} is defined"
+    fail_msg: "Missing variable '{{ item.name }}': {{ item.description }}"
+  with_items:
+    - { name: "service_id",             description: "Id of the service instance that will be deployed." }
+#    - { name: "manifest_file",    description: "Content of Kubernetes manifest file." }
+
+- name: Install required pip modules
+  pip:
+    name:
+      - jsonpatch
+      - kubernetes>12.0.0
+      - PyYAML>3.11
+
+- name: Check if Kubernetes config is available.
+  stat:
+    path: /etc/kubernetes/admin.conf
+
+- name: "Get info about namespace '{{ service_id }}'"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ service_id }}"
+    kubeconfig: /etc/kubernetes/admin.conf
+  register: info_output
+
+- name: Remove namespace
+  when: info_output.resources | length != 0
+  kubernetes.core.k8s:
+    name: "{{ service_id }}"
+    api_version: v1
+    kind: Namespace
+    state: absent
+    kubeconfig: /etc/kubernetes/admin.conf
+    wait: yes

@@ -1,0 +1,13 @@
+---
+
+- name: Include OS-specific variables.
+  include_vars: "{{ ansible_os_family }}.yml"
+
+- name: Label worker nodes
+  include_tasks: k8s_master/400_label_nodes.yml
+
+- name: Install krew on master
+  include_tasks: k8s_master/500_install_krew.yml
+
+- name: Install helm on master
+  include_tasks: k8s_master/600_install_helm.yml

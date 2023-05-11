@@ -1,0 +1,49 @@
+---
+- name: Get config from environment variables
+  set_fact:
+    consul_url: "{{ lookup('env', 'CONSUL_URL') }}"
+    consul_token: "{{ lookup('env', 'CONSUL_TOKEN') }}"
+    vault_url: "{{ lookup('env', 'VAULT_URL') }}"
+    vault_approle_role_id: "{{ lookup('env', 'VAULT_APPROLE_ROLE_ID') }}"
+    vault_approle_secret_id: "{{ lookup('env', 'VAULT_APPROLE_SECRET_ID') }}"
+  no_log: true
+- assert:
+    that:
+      - resource_id
+      #      - service_name
+      - (consul_url is defined) and (consul_url|length > 0)
+      - (consul_token is defined) and (consul_token|length > 0)
+      - (vault_url is defined) and (vault_url|length > 0)
+      - (vault_approle_role_id is defined) and (vault_approle_role_id|length > 0)
+      - (vault_approle_secret_id is defined) and (vault_approle_secret_id|length > 0)
+
+- name: Ensure required modules are installed
+  pip:
+    name:
+      - hvac>=1.0.2
+
+- set_fact:
+    vault_lookup_base_info: "url={{ vault_url }} auth_method=approle role_id={{ vault_approle_role_id }} secret_id={{ vault_approle_secret_id }}"
+
+- name: "Compose service id from resource id"
+  set_fact:
+    service_name: "kubernetes_{{ resource_id }}"
+
+- name: Persist config to vault
+  vars:
+  #    role_id: "{{ lookup('community.hashi_vault.vault_read', 'auth/approle/role/role-name/role-id') }}"
+  #    secret_id: "{{ lookup('community.hashi_vault.vault_write', 'auth/approle/role/role-name/secret-id') }}"
+  community.hashi_vault.vault_write:
+    url: '{{ vault_url }}'
+    auth_method: approle
+    role_id: '{{ vault_approle_role_id }}'
+    secret_id: '{{ vault_approle_secret_id }}'
+    path: '{{ item }}'
+    data:
+      data:
+        kubeconfig: "{{ recap_kubeconfig }}"
+        test: "{{ recap_kubeconfig | from_yaml | to_json}}"
+  register: secret_data
+  loop:
+    - "resources/data/{{ resource_id }}"
+  ignore_errors: yes

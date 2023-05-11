@@ -1,0 +1,49 @@
+---
+- name: "Check required variables"
+  assert:
+    that: "{{ item.name }} is defined"
+    fail_msg: "Missing variable '{{ item.name }}': {{ item.description }}"
+  with_items:
+    - { name: "service_id",             description: "Id of the service instance that will be deployed." }
+    - { name: "manifest_file",    description: "Content of Kubernetes manifest file." }
+
+- name: Install required pip modules
+  pip:
+    name:
+      - jsonpatch
+      - kubernetes>12.0.0
+      - PyYAML>3.11
+
+#- set_fact:
+#    docker_compose_list: "{{ [ manifest_file ] }}"
+#
+#- name: Deploy Stack
+#  docker_stack:
+#    state: present
+#    name: "{{ service_id }}"
+#    compose: "{{ docker_compose_list }}"
+#  run_once: true
+
+- name: Check if Kubernetes config is available.
+  stat:
+    path: /etc/kubernetes/admin.conf
+
+
+- name: Create a the service namespace
+  kubernetes.core.k8s:
+    name: "{{ service_id }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+    kubeconfig: /etc/kubernetes/admin.conf
+  register: create_ns
+  until: not create_ns.failed
+  retries: 10
+
+- name: Create the the deployment
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ manifest_file }}"
+    kubeconfig: /etc/kubernetes/admin.conf
+    namespace: "{{ service_id }}"
+#  loop: "{{ definitions }}"

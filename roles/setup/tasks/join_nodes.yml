@@ -1,0 +1,6 @@
+---
+- name: Include OS-specific variables.
+  include_vars: "{{ ansible_os_family }}.yml"
+
+- name: Join nodes
+  include_tasks: k8s_node/010_join_cluster.yml

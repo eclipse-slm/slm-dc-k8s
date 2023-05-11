@@ -1,0 +1,19 @@
+---
+# tasks file for k8s_master
+
+- name: Create the directory for the kubernetes_config_file
+  file:
+    path: "{{ kubernetes_kubeadm_kubelet_config_file_path | dirname }}"
+    state: directory
+
+- name: Deploy the config-file for kubeadm and kubelet
+  template:
+    src: master/kubeadm-kubelet-config.j2
+    dest: "{{ kubernetes_kubeadm_kubelet_config_file_path }}"
+
+- name: Preload k8s (master) docker images
+  command: >
+    kubeadm config images pull
+  register: kubeadmin_download
+  register: preload_output
+  changed_when: preload_output.msg != ""

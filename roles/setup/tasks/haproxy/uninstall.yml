@@ -1,0 +1,29 @@
+---
+# tasks file for haproxy
+- name: Uninstall haproxy package
+  ansible.builtin.apt:
+    name: haproxy
+    state: present
+  register: apt_action
+  retries: 20
+  delay: 10
+  until: apt_action is success or apt_action.rc is not defined
+
+- name: Remove dependencies that are no longer required
+  ansible.builtin.apt:
+    autoremove: yes
+
+- name: Remove haproxy config
+  ansible.builtin.file:
+    path: /etc/haproxy/haproxy.cfg
+    state: absent
+
+- name: Ensure HAProxy is stopped and disabled at boot
+  ansible.builtin.systemd:
+    name: haproxy
+    state: stopped
+    enabled: no
+#  changed_when: false
+#  register: haproxy_enable_output
+#  failed_when: not haproxy_enable_output.enabled and haproxy_enable_output.state != "started"
+

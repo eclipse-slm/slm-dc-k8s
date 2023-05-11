@@ -1,0 +1,6 @@
+---
+- name: Include OS-specific variables.
+  include_vars: "{{ ansible_os_family }}.yml"
+
+- name: Get master token (kubeadm)
+  include_tasks: k8s_master/200_join_master.yml

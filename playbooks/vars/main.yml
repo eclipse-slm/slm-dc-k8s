@@ -1,0 +1,20 @@
+---
+# defaults file for use
+
+deployment_parameters:
+  - {
+    name: "service_id",
+    description: "Id of the service instance that will be deployed."
+  }
+  - {
+    name: "manifest_file",
+    description: "Content of Kubernetes manifest file."
+  }
+  - {
+    name: "kubernetes_kubeconfig",
+    description: "Content of Kubernetes kubeconfig file."
+  }
+  - {
+      name: "kubernetes_namespace",
+      description: "The Kubernetes namespace to be deployed to."
+  }
