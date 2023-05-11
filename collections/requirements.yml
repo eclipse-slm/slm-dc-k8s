@@ -2,7 +2,7 @@
 collections:
   - name: "https://github.com/eclipse-slm/slm-dc-docker"
     type: git
-    version: develop
+    version: main
 
   - name: community.hashi_vault
     version: 3.3.1
