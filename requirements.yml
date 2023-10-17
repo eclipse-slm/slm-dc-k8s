@@ -6,13 +6,13 @@ roles:
     name: molecule_vsphere
   - src: "git+https://github.com/eclipse-slm/slm-ansible-role-inventory-helper"
     scm: git
-    version: main
+    version: 1.0.0
     name: inventory_helper
 
 collections:
   - name: "https://github.com/eclipse-slm/slm-dc-docker"
     type: git
-    version: main
+    version: 1.0.0
 
   - name: "https://github.com/ansible-collections/kubernetes.core.git"
     type: git
